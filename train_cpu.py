@@ -16,6 +16,7 @@ from loss_function import Tacotron2Loss
 from logger import Tacotron2Logger
 from hparams import create_hparams
 
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 def reduce_tensor(tensor, n_gpus):
     rt = tensor.clone()
@@ -71,7 +72,7 @@ def prepare_directories_and_logger(output_directory, log_directory, rank):
 
 
 def load_model(hparams):
-    model = Tacotron2(hparams).cuda()
+    model = Tacotron2(hparams)
     if hparams.fp16_run:
         model.decoder.attention_layer.score_mask_value = finfo('float16').min
 
@@ -201,16 +202,12 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
             epoch_offset = max(0, int(iteration / len(train_loader)))
 
     model.train()
-    init_lr = learning_rate
     is_overflow = False
     # ================ MAIN TRAINNIG LOOP! ===================
     for epoch in range(epoch_offset, hparams.epochs):
         print("Epoch: {}".format(epoch))
         for i, batch in enumerate(train_loader):
             start = time.perf_counter()
-            learning_rate = init_lr * (0.5 ** (((epoch - 2000) // 200)))
-            if epoch % 50 == 0:
-                print('lr at epoch ', epoch, learning_rate)
             for param_group in optimizer.param_groups:
                 param_group['lr'] = learning_rate
 
