@@ -16,6 +16,7 @@ from loss_function import Tacotron2Loss
 from logger import Tacotron2Logger
 from hparams import create_hparams
 
+os.environ["CUDA_VISIBLE_DEVICES"]= "1"
 
 def reduce_tensor(tensor, n_gpus):
     rt = tensor.clone()
@@ -43,6 +44,7 @@ def prepare_dataloaders(hparams):
     # Get data, data loaders and collate function ready
     trainset = TextMelLoader(hparams.training_files, hparams)
     valset = TextMelLoader(hparams.validation_files, hparams)
+    testset = TextMelLoader(hparams.test_files, hparams)
     collate_fn = TextMelCollate(hparams.n_frames_per_step)
 
     if hparams.distributed_run:
@@ -56,7 +58,7 @@ def prepare_dataloaders(hparams):
                               sampler=train_sampler,
                               batch_size=hparams.batch_size, pin_memory=False,
                               drop_last=True, collate_fn=collate_fn)
-    return train_loader, valset, collate_fn
+    return train_loader, valset, testset, collate_fn
 
 
 def prepare_directories_and_logger(output_directory, log_directory, rank):
@@ -117,6 +119,33 @@ def save_checkpoint(model, optimizer, learning_rate, iteration, filepath):
                 'optimizer': optimizer.state_dict(),
                 'learning_rate': learning_rate}, filepath)
 
+
+def test(model, criterion, testset, iteration, batch_size, n_gpus,
+             collate_fn, logger, distributed_run, rank):
+    """Handles all the validation scoring and printing"""
+    model.eval()
+    with torch.no_grad():
+        test_sampler = DistributedSampler(testset) if distributed_run else None
+        test_loader = DataLoader(testset, sampler=test_sampler, num_workers=1,
+                                shuffle=False, batch_size=batch_size,
+                                pin_memory=False, collate_fn=collate_fn)
+
+        test_loss = 0.0
+        for i, batch in enumerate(test_loader):
+            x, y = model.parse_batch(batch)
+            y_pred = model(x)
+            loss = criterion(y_pred, y)
+            if distributed_run:
+                reduced_test_loss = reduce_tensor(loss.data, n_gpus).item()
+            else:
+                reduced_test_loss = loss.item()
+            test_loss += reduced_test_loss
+        test_loss = test_loss / (i + 1)
+
+    model.train()
+    if rank == 0:
+        print("Test loss {}: {:9f}  ".format(iteration, reduced_test_loss))
+        logger.log_test(reduced_test_loss, model, y, y_pred, iteration)
 
 def validate(model, criterion, valset, iteration, batch_size, n_gpus,
              collate_fn, logger, distributed_run, rank):
@@ -183,7 +212,7 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
     logger = prepare_directories_and_logger(
         output_directory, log_directory, rank)
 
-    train_loader, valset, collate_fn = prepare_dataloaders(hparams)
+    train_loader, valset, testset, collate_fn = prepare_dataloaders(hparams)
 
     # Load checkpoint if one exists
     iteration = 0
@@ -206,11 +235,12 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
     # ================ MAIN TRAINNIG LOOP! ===================
     for epoch in range(epoch_offset, hparams.epochs):
         print("Epoch: {}".format(epoch))
+        if epoch > 1000:
+            learning_rate = init_lr * (0.01 ** (((epoch - 1000) / 3000.0)))
+        if epoch % 100 == 0:
+            print('lr at epoch ', epoch, learning_rate)
         for i, batch in enumerate(train_loader):
             start = time.perf_counter()
-            learning_rate = init_lr * (0.5 ** (((epoch - 2000) // 200)))
-            if epoch % 50 == 0:
-                print('lr at epoch ', epoch, learning_rate)
             for param_group in optimizer.param_groups:
                 param_group['lr'] = learning_rate
 
@@ -248,6 +278,9 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
 
             if not is_overflow and (iteration % hparams.iters_per_checkpoint == 0):
                 validate(model, criterion, valset, iteration,
+                         hparams.batch_size, n_gpus, collate_fn, logger,
+                         hparams.distributed_run, rank)
+                test(model, criterion, testset, iteration,
                          hparams.batch_size, n_gpus, collate_fn, logger,
                          hparams.distributed_run, rank)
                 if rank == 0:
