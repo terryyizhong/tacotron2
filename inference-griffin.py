@@ -4,6 +4,9 @@ import torch
 import os
 import argparse
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pylab as plt
 from hparams import create_hparams
 from model import Tacotron2
 from layers import TacotronSTFT, STFT
