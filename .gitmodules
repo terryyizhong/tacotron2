@@ -1,0 +1,3 @@
+[submodule "waveglow"]
+	path = waveglow
+	url = https://github.com/DexterWx/TTS-waveglow
