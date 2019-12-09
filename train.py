@@ -144,8 +144,8 @@ def test(model, criterion, testset, iteration, batch_size, n_gpus,
 
     model.train()
     if rank == 0:
-        print("Test loss {}: {:9f}  ".format(iteration, reduced_test_loss))
-        logger.log_test(reduced_test_loss, model, y, y_pred, iteration)
+        print("Test loss {}: {:9f}  ".format(iteration, test_loss))
+        logger.log_test(test_loss, model, y, y_pred, iteration)
 
 def validate(model, criterion, valset, iteration, batch_size, n_gpus,
              collate_fn, logger, distributed_run, rank):
@@ -171,8 +171,8 @@ def validate(model, criterion, valset, iteration, batch_size, n_gpus,
 
     model.train()
     if rank == 0:
-        print("Validation loss {}: {:9f}  ".format(iteration, reduced_val_loss))
-        logger.log_validation(reduced_val_loss, model, y, y_pred, iteration)
+        print("Validation loss {}: {:9f}  ".format(iteration, val_loss))
+        logger.log_validation(val_loss, model, y, y_pred, iteration)
 
 
 def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
@@ -235,9 +235,11 @@ def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
     # ================ MAIN TRAINNIG LOOP! ===================
     for epoch in range(epoch_offset, hparams.epochs):
         print("Epoch: {}".format(epoch))
-        if epoch > 1000:
-            learning_rate = init_lr * (0.01 ** (((epoch - 1000) / 3000.0)))
-        if epoch % 100 == 0:
+        if epoch >= 2220 :
+            learning_rate = init_lr * (0.5 ** ( (epoch - 2220) // 200))
+            if learning_rate < 0.00001 or learning_rate > 0.0001:
+                learning_rate = 0.00001
+        if epoch % 10 == 0:
             print('lr at epoch ', epoch, learning_rate)
         for i, batch in enumerate(train_loader):
             start = time.perf_counter()

@@ -142,8 +142,8 @@ def test(model, criterion, testset, iteration, batch_size, n_gpus,
 
     model.train()
     if rank == 0:
-        print("Test loss {}: {:9f}  ".format(iteration, reduced_test_loss))
-        logger.log_test(reduced_test_loss, model, y, y_pred, iteration)
+        print("Test loss {}: {:9f}  ".format(iteration, test_loss))
+        logger.log_test(test_loss, model, y, y_pred, iteration)
 
 
 def validate(model, criterion, valset, iteration, batch_size, n_gpus,
@@ -170,8 +170,8 @@ def validate(model, criterion, valset, iteration, batch_size, n_gpus,
 
     model.train()
     if rank == 0:
-        print("Validation loss {}: {:9f}  ".format(iteration, reduced_val_loss))
-        logger.log_validation(reduced_val_loss, model, y, y_pred, iteration)
+        print("Validation loss {}: {:9f}  ".format(iteration, val_loss))
+        logger.log_validation(val_loss, model, y, y_pred, iteration)
 
 
 def train(output_directory, log_directory, checkpoint_path, warm_start, n_gpus,
