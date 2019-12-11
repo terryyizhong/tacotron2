@@ -19,7 +19,7 @@ from mel2samp import files_to_list, MAX_WAV_VALUE
 from waveglow.denoiser import Denoiser
 
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "6"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 # chinese2pinyin
 def chs_pinyin(text):
@@ -78,11 +78,14 @@ def test():
 
     # preprocess
     r = request.json
-    r_json = json.loads(r)
+    print('r:', r)
+    r_json = r
+    print('rjson:', r_json)
     data = r_json['data']
     name_pinyin = an_to_cn(data)
     name_pinyin = chs_pinyin(name_pinyin)[0].strip('.').strip(' ')
     pinyins = "huan1 ying2 hui2 dao4 tuo1 bi3 tong2 bu4 ke4 tang2 , " + name_pinyin + " , tuo1 bi3 pei2 ni3 yi4 qi3 xue2 xi2 ba1 !"
+    print(pinyins)
 
     # inference
     sequence = np.array(text_to_sequence(pinyins, ['english_cleaners']))[None, :]
@@ -100,6 +103,7 @@ def test():
     audio = audio.squeeze()
     audio = audio.cpu().numpy()
     audio = audio.astype('int16')
+    print('infer done')
 
     #resp['audio_array'] = list(audio)
     #resp["success"] = True
@@ -119,7 +123,7 @@ def test():
 # init model1
 hparams = create_hparams("mask_padding=True")
 model = load_model(hparams)
-checkpoint_path = '/gdata/speech_workspace/yi.zhong/to_others/TTS_files/TTS-models/tuobi-ketang-name/checkpoint_161400'
+checkpoint_path = 'tuobi-ketang-model/checkpoint_161400'
 # cpu init
 #model.load_state_dict({k.replace('module.',''):v for k,v in torch.load(checkpoint_path ,map_location='cpu')['state_dict'].items()})
 model.load_state_dict(torch.load(checkpoint_path)['state_dict'])
@@ -127,7 +131,7 @@ _ = model.cuda().eval()#.half()
 
 # init model2
 is_fp16 = True
-waveglow_path = '/gdata/speech_workspace/yi.zhong/to_others/TTS_files/TTS-models/tuobi-ketang-name/waveglow_1188000'
+waveglow_path = 'tuobi-ketang-model/waveglow_1188000'
 sigma = 0.6
 denoiser_strength = 0.0
 sampling_rate = 22050
@@ -140,6 +144,6 @@ if is_fp16:
 if denoiser_strength > 0:
     denoiser = Denoiser(waveglow).cuda()
 
-    #app.run(host="0.0.0.0", port=5000)
+#app.run(host="0.0.0.0", port=5000)
 
 
