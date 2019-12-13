@@ -88,3 +88,11 @@ def english_cleaners(text):
   text = expand_abbreviations(text)
   text = collapse_whitespace(text)
   return text
+
+
+def chinese_cleaners(text):
+  '''Pipeline for Chinese text.'''
+  text = convert_to_ascii(text)
+  text = lowercase(text)
+  text = collapse_whitespace(text)
+  return text

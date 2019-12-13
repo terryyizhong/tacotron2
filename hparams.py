@@ -1,5 +1,5 @@
 import tensorflow as tf
-from text import symbols
+from text import symbols, symbols_chs
 
 
 def create_hparams(hparams_string=None, verbose=False):
@@ -45,6 +45,7 @@ def create_hparams(hparams_string=None, verbose=False):
         # Model Parameters             #
         ################################
         n_symbols=len(symbols),
+        chs_symbols_diff = 0,
         symbols_embedding_dim=512,
 
         # Encoder parameters
